@@ -29,7 +29,6 @@ public class LoginFrame{
     private static void addListeners(){
         login.addActionListener(e -> {
             System.out.println(UserManager.login(userName.getText(), password.getText()));
-            //todo:登陆成功则关闭当前页面，打开主界面，失败则打开对应原因界面
             if(UserManager.login(userName.getText(), password.getText())){
                 MainFrame mainFrame = new MainFrame(userName.getText());
                 show(false);

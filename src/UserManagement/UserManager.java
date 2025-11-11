@@ -13,16 +13,13 @@ import java.util.Comparator;
 public class UserManager {
     /**
      * 该类用于管理用户及用户数据，分为四个模块：私有化方法模块，初始化模块，用户操作管理模块，用户数据管理模块
+     * 该类中所有路径中src\\在打包前必须去除（
      */
 
     private static final String userNames = "src\\Users\\userNames.txt";
 
-
-    /**
-     * 私有化方法(便于内部操作，防止外界非法调用)
-     */
     //判断用户名是否已经存在
-    private static boolean isContained(String userName){
+    public static boolean isContained(String userName){
         try (BufferedReader br = new BufferedReader(new FileReader(userNames))){
             String line;
             while ((line = br.readLine()) != null){
@@ -35,6 +32,10 @@ public class UserManager {
         }
         return false;
     }
+
+    /**
+     * 私有化方法(便于内部操作，防止外界非法调用)
+     */
     //密码校验(输入为已加密密码)
     private static boolean comparePassword(String userName,String hashedPassword){
         if (!isContained(userName)) {
@@ -208,10 +209,38 @@ public class UserManager {
     }
 
     /**
+     * 数据验证模块:<p>
+     *     验证日期不可重复性...(还有功能在计划之中)<p>
+     * 验证日期不可重复性：{@code dateExists}<p>
+     */
+    public static boolean dateExists(String userName,int year, int month, int day){
+        if(!isContained(userName)){
+            System.out.println("未知用户");
+            return true;
+        }
+        try(BufferedReader br = new BufferedReader(
+                new FileReader("src\\Users\\userData\\"+userName+"\\classTimeGrade.txt"))){//由于四个文件是同时操作的，只需要查看其中任意一个就好
+            String line;
+            while ((line = br.readLine())!=null){
+                String[] s = line.trim().split("\\s+");
+                if(year==Integer.parseInt(s[0])&&month==Integer.parseInt(s[1])&&day==Integer.parseInt(s[2])){
+                    return true;
+                }
+            }
+            return false;
+        }catch (IOException e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * 用户数据管理模块：核心数据管理模块、每日详细数据管理模块、重置模块<p>
      * 核心数据管理模块：{@code addClassTimeGrade},{@code addWorkGrade},{@code addEnglishGrade},{@code addRunningGrade}<p>
-     * 每日详细数据管理模块：{@code recordClassTime},{@code recordQuestionNum},
-     *                  {@code recordEnglishWordNum},{@code recordRunningTime}<p>
+     * 每日详细数据管理模块：<p>
+     * 1、添加模块：{@code recordClassTime},{@code recordQuestionNum},
+     * {@code recordEnglishWordNum},{@code recordRunningTime}<p>
+     * 2、覆盖模块(将最后一行数据覆盖，用于同日期输入情况)：{@code rewriteClassTime},{@code rewriteQuestionNum},
+     * {@code rewriteEnglishWordNum},{@code rewriteRunningTime}<p>
      * 重置模块：{@code resetUserData}
      */
     //核心数据管理模块
@@ -346,6 +375,7 @@ public class UserManager {
         }
     }
     //每日数据管理模块
+    //记录模块
     public static boolean recordClassTime(String userName,int Time, int classNum){
         if(!isContained(userName)){
             System.out.println("未知用户！");
@@ -354,7 +384,7 @@ public class UserManager {
         LocalDate date = LocalDate.now();
         try (PrintWriter writer = new PrintWriter(
                 new FileWriter("src\\Users\\userData\\"+userName+"\\classTimeGrade.txt",true))){
-            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth()
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
                     + "\t" + Time + ' ' + classNum + ' ' + PerformanceGrade.classTimeGrade(Time,classNum));
             return true;
         } catch (IOException e) {
@@ -369,7 +399,7 @@ public class UserManager {
         LocalDate date = LocalDate.now();
         try (PrintWriter writer = new PrintWriter(
                 new FileWriter("src\\Users\\userData\\"+userName+"\\workGrade.txt",true))){
-            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth()
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
                     + "\t" + questionNum + ' ' + PerformanceGrade.workGrade(questionNum));
             return true;
         } catch (IOException e) {
@@ -384,7 +414,7 @@ public class UserManager {
         LocalDate date = LocalDate.now();
         try ( PrintWriter writer = new PrintWriter(
                 new FileWriter("src\\Users\\userData\\"+userName+"\\englishWordGrade.txt",true))){
-            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth()
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
                     + "\t" + wordNum + ' ' + PerformanceGrade.englishWordGrade(wordNum));
             return true;
         } catch (IOException e) {
@@ -399,13 +429,127 @@ public class UserManager {
         LocalDate date = LocalDate.now();
         try (PrintWriter writer = new PrintWriter(
                 new FileWriter("src\\Users\\userData\\"+userName+"\\runningGrade.txt",true))){
-            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth()
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
                     + "\t" + Num + ' ' + Time + ' ' + PerformanceGrade.runningTimeGrade(Time,Num));
             return true;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+    //覆盖(写)模块
+    public static boolean rewriteClassTime(String userName,int Time, int classNum){
+        if(!isContained(userName)){
+            System.out.println("未知用户！");
+            return false;
+        }
+        StringBuffer sb = new StringBuffer();
+        try (BufferedReader br = new BufferedReader(
+                new FileReader("src\\Users\\userData\\"+userName+"\\classTimeGrade.txt"))){
+            String line = br.readLine();
+            String temp = line;
+            while ((line = br.readLine()) != null){
+                sb.append(temp);
+                temp = line;
+            }
+        }catch (IOException e){
+            throw new RuntimeException(e);
+        }
+        LocalDate date = LocalDate.now();
+        try (PrintWriter writer = new PrintWriter(
+                new FileWriter("src\\Users\\userData\\"+userName+"\\classTimeGrade.txt"))){
+            writer.println(sb);
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
+                    + "\t" + Time + ' ' + classNum + ' ' + PerformanceGrade.classTimeGrade(Time,classNum));
+            return true;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public static boolean rewriteQuestionNum(String userName, int questionNum){
+        if(!isContained(userName)){
+            System.out.println("未知用户！");
+            return false;
+        }
+        StringBuffer sb = new StringBuffer();
+        try (BufferedReader br = new BufferedReader(
+                new FileReader("src\\Users\\userData\\"+userName+"\\workGrade.txt"))){
+            String line = br.readLine();
+            String temp = line;
+            while ((line = br.readLine()) != null){
+                sb.append(temp);
+                temp = line;
+            }
+        }catch (IOException e){
+            throw new RuntimeException(e);
+        }
+        LocalDate date = LocalDate.now();
+        try (PrintWriter writer = new PrintWriter(
+                new FileWriter("src\\Users\\userData\\"+userName+"\\workGrade.txt"))){
+            writer.println(sb);
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
+                    + "\t" + questionNum + ' ' + PerformanceGrade.workGrade(questionNum));
+            return true;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public static boolean rewriteEnglishWordNum(String userName, int wordNum){
+        if(!isContained(userName)){
+            System.out.println("未知用户！");
+            return false;
+        }
+        StringBuffer sb = new StringBuffer();
+        try (BufferedReader br = new BufferedReader(
+                new FileReader("src\\Users\\userData\\"+userName+"\\englishWordGrade.txt"))){
+            String line = br.readLine();
+            String temp = line;
+            while ((line = br.readLine()) != null){
+                sb.append(temp);
+                temp = line;
+            }
+        }catch (IOException e){
+            throw new RuntimeException(e);
+        }
+        LocalDate date = LocalDate.now();
+        try ( PrintWriter writer = new PrintWriter(
+                new FileWriter("src\\Users\\userData\\"+userName+"\\englishWordGrade.txt"))){
+            writer.println(sb);
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
+                    + "\t" + wordNum + ' ' + PerformanceGrade.englishWordGrade(wordNum));
+            return true;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public static boolean rewriteRunningTime(String userName, int Time, int Num){
+        if(!isContained(userName)){
+            System.out.println("未知用户！");
+            return false;
+        }
+        StringBuffer sb = new StringBuffer();
+        try (BufferedReader br = new BufferedReader(
+                new FileReader("src\\Users\\userData\\"+userName+"\\runningGrade.txt"))){
+            String line = br.readLine();
+            String temp = line;
+            while ((line = br.readLine()) != null){
+                sb.append(temp);
+                temp = line;
+            }
+        }catch (IOException e){
+            throw new RuntimeException(e);
+        }
+        LocalDate date = LocalDate.now();
+        try (PrintWriter writer = new PrintWriter(
+                new FileWriter("src\\Users\\userData\\"+userName+"\\runningGrade.txt"))){
+            writer.println(sb);
+            writer.println(date.getYear() + " " + date.getMonthValue() + " " + date.getDayOfMonth() + " " + date.getDayOfWeek().getValue()
+                    + "\t" + Num + ' ' + Time + ' ' + PerformanceGrade.runningTimeGrade(Time,Num));
+            return true;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     //重置模块
     public static boolean resetUserData(String userName, String password){
         String hashedPassword = hashWithSHA256(password);
